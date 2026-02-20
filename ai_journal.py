@@ -1,73 +1,77 @@
 import streamlit as st
-from openai import OpenAI
 import pandas as pd
 from datetime import datetime
 
 # ----------------------
 # Streamlit App Setup
 # ----------------------
-st.set_page_config(page_title="AI Journal 💛", page_icon="📝")
-st.title("AI Journaling App 💛")
-st.write("Write down your thoughts, select your mood, and get AI reflections.")
+st.set_page_config(page_title="Mood & Journal Tracker 💛", page_icon="📝")
+st.title("🌈 Mood & Journal Tracker")
+st.write("Track your moods, write reflections, and see your history.")
 
 # ----------------------
-# OpenAI Client
-# ----------------------
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-# ----------------------
-# Initialize session state for entries
+# Initialize session state
 # ----------------------
 if "entries" not in st.session_state:
     st.session_state.entries = []
 
 # ----------------------
+# Mood options with color codes
+# ----------------------
+mood_options = {
+    "🙂 Happy": "#FFD700",
+    "😐 Neutral": "#87CEEB",
+    "😔 Sad": "#6495ED",
+    "😡 Angry": "#FF6347",
+    "😰 Anxious": "#FF4500",
+    "😶 Feeling nothing": "#C0C0C0"
+}
+
+# ----------------------
 # User input
 # ----------------------
-user_input = st.text_area("Write your thoughts here:")
+st.subheader("Write your reflection")
+user_input = st.text_area("Your thoughts here:")
 
 mood = st.selectbox(
-    "Select your mood",
-    ["🙂 Happy", "😐 Neutral", "😔 Sad", "😡 Angry", "😰 Anxious"]
+    "Select your mood:",
+    list(mood_options.keys())
 )
 
 # ----------------------
-# Save & Reflect button
+# Save button
 # ----------------------
-if st.button("Save & Reflect") and user_input.strip() != "":
+if st.button("Save Reflection") and user_input.strip() != "":
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    # Call OpenAI for reflection
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a kind, emotionally intelligent journaling companion."},
-                {"role": "user", "content": f"My mood is {mood}. Here's my journal entry: {user_input}"}
-            ]
-        )
-        ai_reply = response.choices[0].message.content
-    except Exception as e:
-        ai_reply = f"AI reflection failed: {e}"
-
-    # Save entry in session
+    
     st.session_state.entries.append({
         "timestamp": timestamp,
         "mood": mood,
-        "entry": user_input,
-        "reflection": ai_reply
+        "entry": user_input
     })
+    
+    st.success("Reflection saved!")
 
 # ----------------------
-# Display past entries
+# Display past entries by date
 # ----------------------
 if st.session_state.entries:
-    st.write("## Your Past Entries")
-
+    st.subheader("📅 Past Reflections")
+    
+    # Convert to DataFrame
     df = pd.DataFrame(st.session_state.entries)
-    df = df[::-1]  # Show newest first
-    for idx, row in df.iterrows():
-        st.write(f"**{row['timestamp']}** | Mood: {row['mood']}")
-        st.write(row["entry"])
-        st.write(f"💡 AI Reflection: {row['reflection']}")
-        st.markdown("---")
+    
+    # Group by date
+    df['date'] = pd.to_datetime(df['timestamp']).dt.date
+    dates = df['date'].unique()[::-1]  # newest first
+    
+    for date in dates:
+        st.markdown(f"### {date}")
+        daily_entries = df[df['date'] == date]
+        for idx, row in daily_entries.iterrows():
+            color = mood_options.get(row["mood"], "#FFFFFF")
+            st.markdown(
+                f"<div style='background-color:{color}; padding:10px; border-radius:10px; margin-bottom:5px'>"
+                f"<strong>{row['timestamp']} | {row['mood']}</strong><br>{row['entry']}</div>",
+                unsafe_allow_html=True
+            )
